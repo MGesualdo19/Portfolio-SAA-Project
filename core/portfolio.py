@@ -1,73 +1,142 @@
-# The following links contain the etfs to be included in this portfolio exercise segmented by asset class and deeper level segmentation.
+"""
+core/portfolio.py
 
-# Fixed Income:
+Portfolio is the top-of-house object: a flat list of Security objects
+plus a lookup of AccountProfile objects keyed by tag. It does not nest
+securities under accounts — by_account() filters and joins on demand,
+so a security's account can be corrected without restructuring anything.
+"""
 
-# Long matruity and duration (non-FRN) 15+ year maturity
-# US Treasuries (pick only 1 of the following either hedged or not hedged)
-# 1) iShares 20+ Year U.S. Treasury Bond Index ETF: https://www.blackrock.com/ca/investors/en/products/330866/ishares-20%20-year-u-s-treasury-bond-index-etf
-# 1) iShares Core Canadian 15+ Year Federal Bond Index ETF: https://www.blackrock.com/ca/investors/en/products/330862/ishares-core-canadian-15%20-year-federal-bond-index-etf
+from __future__ import annotations
 
-# Short-Medium Maturity
-# 1) iShares Floating Rate Index ETF: https://www.blackrock.com/ca/investors/en/products/239487/ishares-floating-rate-index-etf
-# 2) iShares Core Canadian Short Term Bond Index ETF: https://www.blackrock.com/ca/investors/en/products/239491/ishares-canadian-short-term-bond-index-etf
+from dataclasses import dataclass, field
+from typing import Optional
 
-# Cash or cash equivalents <- this will be my flight to quality piece if required
-# 1) Scotiabank ISA currently paying 2.2% and its CIDC: https://ads.scotiabank.com/investment-savings-account
-        # Or equivalent bank ISA or something
-# For Analysis in portfolio use Cash.TO: money market ticker 2.2% yield
-# Given rising rates environment, and inflatation persisting, unlikely for rate cuts (likely hikes) into 2027
+import pandas as pd
 
-# Equities:
-
-# US (tsx CAD):
-# 1) iShares Core S&P U.S. Total Market Index ETF (3500 stocks - more dilute s&p): https://www.blackrock.com/ca/investors/en/products/272104/ishares-core-sp-us-total-market-index-etf
-# US (USD - requires norberts gambit)
-# 2) VTV Vanguard Value ETF: https://investor.vanguard.com/investment-products/etfs/profile/vtv
-#       Differerent large cap value: Schwab U.S. Dividend Equity ETF https://www.schwabassetmanagement.com/products/schd
-# 3) Avantis U.S. Small Cap Value ETF AVUV: https://www.avantisinvestors.com/avantis-investments/avantis-us-small-cap-value-etf/
-
-# Canadian
-# 1) iShares Core S&P/TSX Capped Composite Index ETF: https://www.blackrock.com/ca/investors/en/products/239837/ishares-sptsx-capped-composite-index-etf
-
-# International developed
-# 1) (VIU) Vanguard FTSE Developed All Cap ex North America Index ETF: https://www.vanguard.ca/en/product/etf/equity/9569/vanguard-ftse-developed-all-cap-ex-north-america-index-etf
-
-# International emerging
-# 2) (VEE) Vanguard FTSE Emerging Markets All Cap Index ETF: https://www.vanguard.ca/en/product/etf/equity/9556/vanguard-ftse-emerging-markets-all-cap-index-etf
+from core.account_profile import AccountProfile
+from core.security import Security
 
 
-# Real Assets
-# Current CAPREIT position in my account
+@dataclass
+class Portfolio:
+    securities: list[Security] = field(default_factory=list)
+    _account_profiles: dict[str, AccountProfile] = field(default_factory=dict, repr=False)
 
-# Others
-# Current VOLX in my account
+    # ------------------------------------------------------------------
+    # Construction
+    # ------------------------------------------------------------------
 
-# Investigate adding gold for diversification purpose
-# gold is here as a tail hedge against an inflationary or supply-shock-driven equity drawdown, specifically AI-capex unwind or a Taiwan disruption, sized small, not as a core holding.
-# 1) iShares Gold Bullion ETF: https://www.blackrock.com/ca/investors/en/products/272269/ishares-gold-bullion-etf
+    def add_security(self, security: Security) -> None:
+        self.securities.append(security)
 
+    def add_account_profile(self, profile: AccountProfile) -> None:
+        self._account_profiles[profile.tag] = profile
 
-# Michael's Portfolio
-# Primary Assumptions: Rate hikes coming 2027 (US Fed and BOC), value tilt to avoid concentration in AI/tech names
-# Main focus is protection against excess valuations (primarliy in tech)
-# Gold may be included to protect against geopolitical tensions/ai driven market drawdown
-# Fixed Income:
-# 1) iShares Floating Rate Index ETF: https://www.blackrock.com/ca/investors/en/products/239487/ishares-floating-rate-index-etf
-# 2) Scotiabank ISA currently paying 2.2% and its CIDC: https://ads.scotiabank.com/investment-savings-account
-#     For Analysis in portfolio use Cash.TO: money market ticker 2.2% yield
-# Equities:
-# 1) iShares Core S&P U.S. Total Market Index ETF (3500 stocks - more dilute s&p): https://www.blackrock.com/ca/investors/en/products/272104/ishares-core-sp-us-total-market-index-etf
-# US (USD - requires norberts gambit)
-# 2) VTV Vanguard Value ETF: https://investor.vanguard.com/investment-products/etfs/profile/vtv
-# 3) Avantis U.S. Small Cap Value ETF AVUV: https://www.avantisinvestors.com/avantis-investments/avantis-us-small-cap-value-etf/
-# Canadian
-# 4) iShares Core S&P/TSX Capped Composite Index ETF: https://www.blackrock.com/ca/investors/en/products/239837/ishares-sptsx-capped-composite-index-etf
-# International developed
-# 5) (VIU) Vanguard FTSE Developed All Cap ex North America Index ETF: https://www.vanguard.ca/en/product/etf/equity/9569/vanguard-ftse-developed-all-cap-ex-north-america-index-etf
-# International emerging
-# 6) (VEE) Vanguard FTSE Emerging Markets All Cap Index ETF: https://www.vanguard.ca/en/product/etf/equity/9556/vanguard-ftse-emerging-markets-all-cap-index-etf
-# Real Assets:
-# 1) iShares Gold Bullion ETF: https://www.blackrock.com/ca/investors/en/products/272269/ishares-gold-bullion-etf
-# Existing Positions:
-# 1) CAPREIT, small equity allocation
-# 2) VOLX, small vix allocaitonc
+    # ------------------------------------------------------------------
+    # Queries
+    # ------------------------------------------------------------------
+
+    def by_account(self, tag: str) -> tuple[list[Security], Optional[AccountProfile]]:
+        """
+        Returns (securities filtered to this account_tag, the matching
+        AccountProfile or None if the tag has no registered profile).
+        """
+        secs = [s for s in self.securities if s.account_tag == tag]
+        profile = self._account_profiles.get(tag)
+        if profile is None:
+            print(f"[Portfolio] Warning: no AccountProfile registered for tag '{tag}'.")
+        return secs, profile
+
+    def account_tags(self) -> set[str]:
+        """All account_tag values currently in use across securities."""
+        return {s.account_tag for s in self.securities}
+
+    def unregistered_account_tags(self) -> set[str]:
+        """
+        account_tag values used by securities but with no matching
+        AccountProfile registered — a data-integrity check worth running
+        before by_account() is trusted anywhere downstream.
+        """
+        return self.account_tags() - set(self._account_profiles.keys())
+
+    def tickers(self) -> list[str]:
+        return [s.ticker for s in self.securities]
+
+    def get(self, ticker: str) -> Optional[Security]:
+        for s in self.securities:
+            if s.ticker == ticker:
+                return s
+        return None
+
+    def by_asset_class(self, asset_class: str) -> list[Security]:
+        return [s for s in self.securities if s.asset_class == asset_class]
+
+    # ------------------------------------------------------------------
+    # Weights / summary
+    # ------------------------------------------------------------------
+
+    def total_weight(self) -> Optional[float]:
+        """Sum of assigned weights. Returns None if any security has weight=None."""
+        weights = [s.weight for s in self.securities]
+        if any(w is None for w in weights):
+            return None
+        return sum(weights)
+
+    def weight_check(self, tolerance: float = 0.001) -> None:
+        """Prints a warning if assigned weights don't sum to ~1.0."""
+        total = self.total_weight()
+        if total is None:
+            unset = [s.ticker for s in self.securities if s.weight is None]
+            print(f"[Portfolio] {len(unset)} security/securities have no weight set: {unset}")
+            return
+        if abs(total - 1.0) > tolerance:
+            print(f"[Portfolio] Warning: weights sum to {total:.4f}, not 1.0.")
+
+    def as_dataframe(self) -> pd.DataFrame:
+        """Flat summary table — one row per security, useful for notebook display."""
+        rows = [
+            {
+                "ticker": s.ticker,
+                "name": s.name,
+                "asset_class": s.asset_class,
+                "currency": s.currency,
+                "mer": s.mer,
+                "account_tag": s.account_tag,
+                "weight": s.weight,
+                "role": s.role,
+            }
+            for s in self.securities
+        ]
+        return pd.DataFrame(rows)
+
+    # ------------------------------------------------------------------
+    # Bulk price fetching
+    # ------------------------------------------------------------------
+
+    def fetch_all_prices(self, force_refresh: bool = False) -> None:
+        failures: dict[str, str] = {}
+        for s in self.securities:
+            try:
+                s.fetch_prices(force_refresh=force_refresh)
+            except Exception as exc:  # noqa: BLE001
+                failures[s.ticker] = str(exc)
+        if failures:
+            print(f"[Portfolio] Failed to fetch prices for {len(failures)} ticker(s):")
+            for ticker, msg in failures.items():
+                print(f"  {ticker}: {msg}")
+
+    def returns_matrix(self) -> pd.DataFrame:
+        """
+        Daily returns for every security, aligned on a common date index
+        (inner join — dates where every security has a price). Securities
+        without loaded prices are skipped with a warning, not silently
+        dropped.
+        """
+        series = {}
+        for s in self.securities:
+            if s._prices is None:
+                print(f"[Portfolio] Skipping {s.ticker}: prices not fetched yet.")
+                continue
+            series[s.ticker] = s.daily_returns()
+        return pd.DataFrame(series).dropna(how="any")
