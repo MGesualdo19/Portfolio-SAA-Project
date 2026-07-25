@@ -5,26 +5,28 @@ yfinance wrapper with local pickle caching. Pulls max-available history
 per ticker plus the TSX Composite benchmark used for bull/bear regime
 classification.
 
-FRED macro series and Fama-French factor pulls are deferred until the
-hypothesis-testing phase (analysis/hypothesis_tests.py) — not needed
-for the core OOP skeleton / risk framework.
 """
-
+# Add type hints for the yfinance library, which is otherwise untyped
+# Specifies the rerturn type
 from __future__ import annotations
 
+# Libraries for caching and data handling
 import pickle
+# Pathlib for file path management
 from pathlib import Path
+
 from typing import Optional
 
 import pandas as pd
 import yfinance as yf
 
+# This is set up to be a local cache of price history data, so that repeated runs of the same tickers don't require reloading of API
 CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-BENCHMARK_TICKER = "^GSPTSE"  # TSX Composite — used for bull/bear regime classification
+BENCHMARK_TICKER = "^GSPTSE"  # TSX Composite — used for bull/bear regime classification, later enchancement
 
-
+# Caching functions for price history data, using pickle files stored in the CACHE_DIR. The cache key is derived from the ticker symbol, with special characters replaced to ensure valid file names.
 def _cache_path(key: str) -> Path:
     safe_key = key.replace("^", "").replace("/", "_").replace(" ", "_")
     return CACHE_DIR / f"{safe_key}.pkl"
@@ -49,14 +51,31 @@ def get_price_history(
     force_refresh: bool = False,
 ) -> pd.DataFrame:
     """
-    Pull max-available daily OHLCV history for a ticker via yfinance,
+    Pull max-available daily Open High Low Close Volume history for a ticker via yfinance,
     caching locally as a pickle. Set force_refresh=True to bypass cache.
     """
     cache_key = f"prices_{ticker}"
     if not force_refresh:
         cached = _load_cache(cache_key)
         if cached is not None:
-            return cached
+            # Check Yahoo Finance for recent data
+            tk = yf.Ticker(ticker)
+            recent = tk.history(
+                period="5d",
+                auto_adjust=False
+            )
+
+            if not recent.empty:
+                recent.index = pd.to_datetime(
+                    recent.index
+                ).tz_localize(None)
+                # Latest date in cache
+                cached_last_date = cached.index.max()
+                # Latest date available from Yahoo
+                latest_date = recent.index.max()
+                # If cache is up to date, return it, if not, fetch new data
+                if cached_last_date >= latest_date:
+                    return cached
 
     tk = yf.Ticker(ticker)
     hist = tk.history(period="max", start=start, auto_adjust=False)
