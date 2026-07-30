@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 
-@dataclass
+@dataclass #Prevents needing to write __init__ and __repr__ methods manually, automatically generates them based on the class attributes.
 class AccountProfile:
     tag: str                       # unique key, matched against Security.account_tag
     name: str                      # human-readable label, e.g. "Michael - RRSP"

@@ -29,6 +29,9 @@ VALID_ASSET_CLASSES = {
     "Equity - Emerging Markets",
     "Real Assets - Gold",
     "Volatility",
+    # Backward-compatible aliases used by legacy thesis entries.
+    "Legacy - Single Name Equity",
+    "Legacy - Volatility",
 }
 
 
@@ -47,7 +50,7 @@ class Security:
     holdings: Optional[pd.DataFrame] = field(default=None, repr=False)  # None until scraped from fund site
     _prices: Optional[pd.DataFrame] = field(default=None, repr=False, compare=False)
 
-    # __post_init__ runs automatically after the dataclass-generated __init__.
+    # __post_init__ runs automatically after the dataclass-generated __init__. <= after object is created, but before it is returned to the caller.
     # It is a good place to validate fields that depend on the class invariants.
     def __post_init__(self) -> None:
         if self.asset_class not in VALID_ASSET_CLASSES:
@@ -70,6 +73,7 @@ class Security:
 
     # The @property decorator makes prices behave like an attribute.
     # Accessing security.prices loads the data lazily on first use.
+    # Output is a pandas DataFrame with columns: Open, High, Low, Close, Volume, Dividends, Stock Splits.
     @property
     def prices(self) -> pd.DataFrame:
         """Full OHLCV history. Fetches on first access if not already loaded."""

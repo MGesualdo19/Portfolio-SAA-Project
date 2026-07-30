@@ -19,7 +19,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from core.regime import bull_bear_mask
+from analysis.regime import bull_bear_mask
 
 
 def align_regime_to_returns(regime: pd.Series, returns_index: pd.DatetimeIndex) -> pd.Series:

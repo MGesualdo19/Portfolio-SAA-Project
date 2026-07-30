@@ -5,8 +5,11 @@ Basic construction/validation tests. Doesn't hit the network (no price
 fetching tested here) - just checks the OOP skeleton holds together.
 """
 
+import numpy as np
+import pandas as pd
 import pytest
 
+from analysis.correlation import bull_bear_correlation_summary
 from core.account_profile import AccountProfile
 from core.portfolio import Portfolio
 from core.security import Security
@@ -37,6 +40,29 @@ def test_security_rejects_invalid_asset_class():
             fund_site_url="",
             account_tag="TFSA",
         )
+
+
+def test_legacy_asset_class_names_are_accepted_for_thesis_compatibility():
+    legacy_equity = Security(
+        ticker="CAR-UN.TO",
+        name="CAPREIT",
+        asset_class="Legacy - Single Name Equity",
+        currency="CAD",
+        mer=0.0,
+        fund_site_url="",
+        account_tag="NON_REG",
+    )
+    legacy_vol = Security(
+        ticker="VOLX.TO",
+        name="BetaPro VIX",
+        asset_class="Legacy - Volatility",
+        currency="CAD",
+        mer=0.0118,
+        fund_site_url="",
+        account_tag="NON_REG",
+    )
+    assert legacy_equity.asset_class == "Legacy - Single Name Equity"
+    assert legacy_vol.asset_class == "Legacy - Volatility"
 
 
 def test_security_rejects_invalid_currency():
@@ -108,3 +134,19 @@ def test_weight_check_reports_unset_weights(capsys):
     portfolio.weight_check()
     captured = capsys.readouterr()
     assert "no weight set" in captured.out
+
+
+def test_correlation_module_imports_and_runs_with_regime_helper():
+    idx = pd.date_range("2023-01-01", periods=10, freq="D")
+    returns = pd.DataFrame(
+        {
+            "A": [0.01, -0.02, 0.03, 0.01, -0.01, 0.02, 0.00, -0.03, 0.02, 0.01],
+            "B": [0.00, -0.01, 0.02, 0.00, -0.02, 0.01, -0.01, -0.02, 0.03, 0.02],
+        },
+        index=idx,
+    )
+    benchmark = pd.Series([100, 101, 102, 101, 99, 95, 90, 85, 82, 80], index=idx)
+
+    summary = bull_bear_correlation_summary(returns, benchmark, drawdown_threshold=0.10)
+    assert set(summary.keys()) >= {"full", "bull", "bear", "bear_minus_bull"}
+    assert summary["full"].shape == (2, 2)
