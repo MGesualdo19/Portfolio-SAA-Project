@@ -2,6 +2,16 @@
 # Mark as text so diffs are readable, but suppress them in PR views -- an
 # executed notebook diff is thousands of lines of base64 image payload.
 *.ipynb -diff linguist-documentation
+
 * text=auto eol=lf
+
+# Windows shell scripts must keep CRLF. cmd.exe is unreliable with LF-only
+# batch files, and this one has a multi-line `if (...) else (...)` block, which
+# is exactly the construct that breaks.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
 *.pkl binary
+*.ico binary
 *.docx binary

@@ -1,6 +1,6 @@
 @echo off
 REM Launches the SAA desktop app with pythonw.exe so no console window appears.
-REM Double-click this file, or use scripts\create_shortcut.py to put it on the Desktop.
+REM Double-click this file, or run scripts\create_shortcut.py for Desktop/Start-menu entries.
 setlocal
 cd /d "%~dp0"
 if exist ".venv\Scripts\pythonw.exe" (
