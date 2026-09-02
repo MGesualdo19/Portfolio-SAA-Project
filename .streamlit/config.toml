@@ -1,0 +1,18 @@
+# Charts in dashboard/theme.py are colour-validated against a light surface
+# (CVD separation, contrast, and lightness band all checked on #fcfcfb), so the
+# app pins the light theme rather than letting an OS dark setting swap the
+# surface out from under a palette that was never validated for it.
+[theme]
+base = "light"
+primaryColor = "#2a78d6"
+backgroundColor = "#fcfcfb"
+secondaryBackgroundColor = "#f2f1ee"
+textColor = "#0b0b0b"
+font = "sans serif"
+
+[server]
+headless = true   # the launcher opens the browser itself; see run_dashboard.py
+fileWatcherType = "auto"
+
+[browser]
+gatherUsageStats = false

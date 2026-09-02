@@ -1,8 +1,12 @@
-﻿.venv/
+.venv/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+.pytest_cache/
 data/cache/
-.env
+data/tracker.json
+outputs/saa_result.pkl
 outputs/figures/*.png
+.env
 .DS_Store
+scratch/

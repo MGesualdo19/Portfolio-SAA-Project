@@ -1,0 +1,7 @@
+# Notebooks are stored with outputs so the repo shows results without a re-run.
+# Mark as text so diffs are readable, but suppress them in PR views -- an
+# executed notebook diff is thousands of lines of base64 image payload.
+*.ipynb -diff linguist-documentation
+* text=auto eol=lf
+*.pkl binary
+*.docx binary
