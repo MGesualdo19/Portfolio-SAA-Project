@@ -16,12 +16,25 @@ python -m venv .venv
 .venv/Scripts/activate            # Windows;  source .venv/bin/activate elsewhere
 pip install -r requirements.txt
 
-python run_dashboard.py           # http://localhost:8501
+python -m desktop.main            # desktop app - native window, no browser
 ```
+
+Then put it on the Desktop and Start menu so it opens like any other program:
+
+```bash
+python scripts/create_shortcut.py          # --remove takes them away again
+```
+
+On Windows you can also just double-click **`SAA Dashboard.bat`**, which
+launches through `pythonw.exe` so no console window appears.
 
 The first run fetches price history from Yahoo and caches it under `data/cache/`.
 A cold allocation run with resampling takes one to two minutes; after that,
 results are cached per settings combination.
+
+Prefer a browser? `python run_dashboard.py` serves the same app at
+`http://localhost:8501`, and `python -m desktop.main --browser` does the same
+thing on an ephemeral port.
 
 To see the derivation and the reasoning behind every step:
 
@@ -98,7 +111,22 @@ against 0.65 in-sample, with refit weights that barely move across 15 refits.
 
 ---
 
-## Dashboard
+## The application
+
+The app runs as a real desktop program: `desktop/main.py` starts the analysis
+engine as a private child process bound to loopback on an OS-assigned port, then
+renders it in a native window through WebView2 on Windows (WebKit on
+macOS/Linux). No browser, no URL bar, no visible localhost.
+
+The engine is placed in a Windows job object, so closing the window — or ending
+the task, or a crash — takes the server down with it and never leaves an
+orphaned process holding a port. The window is titled, sized and icon'd like an
+application, and the port is chosen at launch so two copies can run side by side.
+
+Embedding a browser engine rather than rewriting in a desktop toolkit is a
+deliberate choice: the analysis layer is thousands of lines of pandas and scipy
+that must run in CPython, so a "native" UI would either reimplement every view
+or shell out to Python anyway. This keeps one implementation of each view.
 
 | View | What it shows |
 |---|---|
@@ -106,7 +134,7 @@ against 0.65 in-sample, with refit weights that barely move across 15 refits.
 | **Backtest** | Growth of the book 2007–today net of fees and turnover, drawdown, eight named crisis windows, and walk-forward out-of-sample validation |
 | **Forward tracker** | Live NAV from a funding date inside a bootstrapped expectation cone, realised percentile, drift versus target, and rebalancing signals |
 | **Securities** | Any holding on its own terms: price vs total return, drawdown, rolling Sharpe/Sortino, VaR and CVaR by three methods, correlation to the rest of the book in calm vs bear regimes, factor exposure, data provenance |
-| **Evaluation** | Adversarial tests: does the model beat a volatility-matched naive portfolio, which weights were set by a cap rather than the data, how diluted the thesis is, and where the risk really sits |
+| **Evaluation** | Adversarial tests — does the model beat a volatility-matched naive portfolio, which weights were set by a cap rather than the data, how diluted the thesis is, where the risk really sits — then ranked recommendations split into evidenced actions, decisions only you can make, and optional improvements |
 | **Diagnostics** | Regime correlation matrices, downside beta, tail dependence, the expected-return construction, proxy quality, return reconciliation, and a plain statement of the model's limits |
 
 Model parameters that represent judgements rather than estimates — bear weight,
@@ -143,6 +171,11 @@ dashboard/
   app.py             sidebar, navigation, six views
   methodology.py     the formula/inputs/steps/caveat registry behind every tooltip
   theme.py  data.py  views/
+desktop/
+  main.py            native-window shell, process supervision, orphan prevention
+  saa.ico            generated app icon
+scripts/
+  create_shortcut.py Desktop and Start-menu shortcuts
 notebooks/
   01_saa_derivation.ipynb    the derivation and the reasoning
 docs/

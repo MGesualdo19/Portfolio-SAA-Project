@@ -8,7 +8,8 @@ marketing. Everything here is designed to find something wrong with the
 allocation, and each test is run against the current settings so the answers
 update when the model does.
 
-Five questions, in order of how badly a bad answer would matter:
+Five questions, in order of how badly a bad answer would matter, then the
+recommendations that follow from them:
 
   1. Does the model beat a volatility-matched naive portfolio? If not, its
      entire contribution is "hold less equity", which needs no model.
@@ -16,6 +17,9 @@ Five questions, in order of how badly a bad answer would matter:
   3. How much does the answer actually depend on the thesis?
   4. Where is the risk really concentrated, beneath the headline diversification?
   5. What would have to be true for this to be the wrong allocation?
+  6. What to do about all of it -- split into evidenced actions, decisions only
+     the investor can make, and optional improvements. A criticism without a
+     recommended action is just commentary, which is why section 6 exists.
 """
 
 from __future__ import annotations
@@ -39,7 +43,14 @@ from core.policy import EQUITY_TICKERS, REFERENCE_WEIGHTS, default_constraints, 
 from core.saa import reference_allocations
 from dashboard.data import fmt_pct
 from dashboard.methodology import note, tip
-from dashboard.theme import palette, styled, ticker_colors
+from dashboard.theme import STATUS, palette, styled, ticker_colors
+
+# Status hues are reserved and never reused as series colours: green for an
+# evidenced action, amber for a decision only the investor can make, blue for
+# an optional improvement.
+STATUS_ACT = STATUS["good"]
+STATUS_DECIDE = STATUS["warning"]
+STATUS_CONSIDER = "#2a78d6"
 
 
 @st.cache_data(show_spinner=False)
@@ -388,3 +399,147 @@ this dashboard is conditional on the world continuing to rhyme with 2007-2026.
         'three of its more distinctive positions — gold, the value tilt, and the legacy REIT '
         '— are sized by policy bands rather than by the data. Neither is a defect to hide; '
         'both are choices to make deliberately.</div>', unsafe_allow_html=True)
+
+    _recommendations(result, saa, cfg, dark)
+
+
+# =========================================================================
+# Recommendations
+# =========================================================================
+
+def _recommendations(result, saa, cfg, dark: bool) -> None:
+    """
+    What to actually do, ranked by how much it changes the outcome.
+
+    Kept separate from the critique above because a criticism without a
+    recommended action is just commentary. Each item states the decision, the
+    evidence behind it, and — where the answer depends on something the model
+    cannot know — says so instead of pretending to a verdict.
+    """
+    p = palette(dark)
+    w = result.final_weights
+    rf = result.settings["risk_free"]
+
+    st.header("6 · Recommendations")
+    st.markdown(
+        '<p class="subtle">Ranked by how much each one changes the outcome. Two of these are '
+        'decisions only you can make, and they are marked as such rather than answered.</p>',
+        unsafe_allow_html=True)
+
+    rebal = {}
+    for rule, label in [("none", "Buy and hold"), ("Y", "Annual"), ("band", "20% drift band"),
+                        ("Q", "Quarterly"), ("M", "Monthly")]:
+        st_ = run_backtest(result.returns, w,
+                           BacktestConfig(rebalance=rule, cost_bps=8.0,
+                                          fee_drag=result.mer)).stats(rf)
+        rebal[label] = {"Return": st_["ann_return"], "Sharpe": st_["sharpe"],
+                        "Max DD": st_["max_drawdown"], "Turnover": st_["avg_annual_turnover"]}
+    reb = pd.DataFrame(rebal).T
+
+    items = [
+        ("act", "Sell VOLX.TO entirely",
+         f"Cumulative total return since inception is -99.996% "
+         f"(-48%/yr, maximum drawdown -99.998%). A daily-rebalanced long VIX futures position "
+         f"is structurally short the roll and the curve is in contango roughly 80% of months, "
+         f"so it pays a large negative carry every month it is held. This is not a bad run — "
+         f"it is the instrument working as designed. Gold already occupies the tail-hedge slot "
+         f"at a fraction of the cost. The only question is tax timing on the disposition."),
+
+        ("act", "Rebalance annually, not quarterly",
+         f"Measured on this book: annual rebalancing returned "
+         f"{reb.loc['Annual', 'Return']:.2%} at a {reb.loc['Annual', 'Sharpe']:.2f} Sharpe with "
+         f"{reb.loc['Annual', 'Turnover']:.1%} turnover a year, against "
+         f"{reb.loc['Quarterly', 'Return']:.2%} and {reb.loc['Quarterly', 'Sharpe']:.2f} at "
+         f"{reb.loc['Quarterly', 'Turnover']:.1%} for quarterly. More frequent rebalancing "
+         f"bought turnover cost and a slightly deeper drawdown, not a better return — "
+         f"rebalancing into equities mid-drawdown adds risk exactly when it is least wanted. "
+         f"A 20% drift band performs almost identically to annual and needs no calendar."),
+
+        ("act", "Confirm the account placements before trading",
+         "The RRSP/TFSA/FHSA tags in core/universe.py are placeholders encoding what the "
+         "thesis's tax logic implies should be true, not confirmed statements. No weight in "
+         "this model depends on them, but after-tax return does: US-listed VTV and AVUV "
+         "belong in the RRSP to avoid the 15% treaty withholding on dividends, and holding "
+         "them in a TFSA forfeits that permanently with no way to reclaim it. This is the "
+         "highest-value fix in the project and it needs statements, not code."),
+
+        ("decide", "Gold: 14% is a policy ceiling, not a data result",
+         f"The model wants more — with the cap removed, maximum diversification asks for "
+         f"27.8%. The correlation evidence genuinely supports it (+0.04 to core US equity in "
+         f"calm markets, +0.07 in its worst decile, so no convergence when it matters). But "
+         f"gold produces no cash flow, and 2012-2018 saw it fall roughly 40% peak to trough "
+         f"while equities compounded. <b>Your call:</b> 14% is defensible as a deliberate "
+         f"ceiling on a non-cash-flowing asset. If you are uncomfortable holding that much "
+         f"metal, lower the cap in core/policy.py and re-run — do not quietly override the "
+         f"output, change the policy and let the model respond to it."),
+
+        ("decide", "Horizon: the 34.5% defensive sleeve is the biggest open question",
+         f"All-equity earned {(run_backtest(result.returns, reference_allocations(result)['All equity'], cfg).stats(rf)['ann_return'] - saa['ann_return']) * 100:.1f} "
+         f"percentage points a year more over the backtest window; over thirty years that "
+         f"compounds to a very large forgone sum. The current sizing is right for a blended "
+         f"medium horizon and for an FHSA that may fund a home purchase within a few years. "
+         f"<b>Your call:</b> if the money is genuinely untouchable for decades, lower the "
+         f"fixed-income band in core/policy.py from 15-35% toward 10-20% and re-run. The "
+         f"model cannot choose this because it does not know when you need the money."),
+
+        ("consider", "Weight max-Sharpe more heavily if you want the thesis to drive the book",
+         "Four of the five objectives ignore expected returns, so the views move the final "
+         "blend by only about 2 percentage points. Right now the policy floors express the "
+         "thesis more forcefully than the views do. blend_strategies() accepts per-objective "
+         "weights — passing max_sharpe a larger share would let the rate view and the value "
+         "tilt actually steer the allocation, at the cost of the out-of-sample stability that "
+         "equal blending buys. This is a genuine trade-off, not an improvement."),
+
+        ("consider", "Build the fund-holdings overlap analysis",
+         "analysis/pca_overlap.py is still empty. Until it exists, the thesis's central claim "
+         "— that the value tilt reduces exposure to AI-capex-linked mega-caps — is argued "
+         "rather than measured. VTV's 0.96 bear-regime correlation to XUU.TO suggests the "
+         "effect is smaller than the thesis implies. Scraping top-10 holdings and weights from "
+         "the provider pages would settle it."),
+
+        ("consider", "Decide whether CAPREIT belongs in the book at all",
+         f"Held at {float(w.get('CAR-UN.TO', 0)):.1%}, pinned to its cap in three of five "
+         f"objectives. The optimiser likes its low correlation, which is a real finding — but "
+         f"it is a single-name, leveraged, long-duration, rate-sensitive position held against "
+         f"a thesis that expects hikes, and low correlation is entirely compatible with "
+         f"idiosyncratic blow-up risk that no statistic here would have flagged. Zero is an "
+         f"acceptable answer; so is keeping it capped."),
+    ]
+
+    labels = {"act": ("Do this", STATUS_ACT), "decide": ("Your decision", STATUS_DECIDE),
+              "consider": ("Worth considering", STATUS_CONSIDER)}
+    for kind in ("act", "decide", "consider"):
+        heading, colour = labels[kind]
+        st.markdown(f"#### {heading}")
+        for k, title, body in items:
+            if k != kind:
+                continue
+            st.markdown(
+                f'<div style="border-left:3px solid {colour};padding:0.7rem 1rem;'
+                f'background:rgba(0,0,0,0.02);border-radius:0 6px 6px 0;margin:0.5rem 0 0.9rem 0;">'
+                f'<b>{title}</b><br>'
+                f'<span style="font-size:0.9rem;line-height:1.6;color:{p["text_secondary"]};">'
+                f'{body}</span></div>', unsafe_allow_html=True)
+
+    st.markdown("**Rebalancing evidence behind recommendation 2**")
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=reb.index, y=reb["Sharpe"], name="Sharpe",
+                         marker_color=p["categorical"][0],
+                         marker_line=dict(width=2, color=p["surface"]),
+                         text=[f"{v:.2f}" for v in reb["Sharpe"]], textposition="outside",
+                         textfont=dict(color=p["text"], size=11),
+                         hovertemplate="<b>%{x}</b><br>Sharpe %{y:.2f}<extra></extra>"))
+    fig.update_traces(marker_cornerradius=3)
+    fig.update_layout(bargap=0.35, hovermode="closest")
+    st.plotly_chart(styled(fig, dark, height=320, ylabel="Sharpe ratio"), width="stretch")
+
+    show = reb.copy()
+    for col in ["Return", "Max DD", "Turnover"]:
+        show[col] = (show[col] * 100).round(2)
+    show["Sharpe"] = show["Sharpe"].round(3)
+    show.columns = ["Annual return %", "Sharpe", "Max drawdown %", "Turnover %/yr"]
+    st.dataframe(show, width="stretch")
+    st.caption("All five run over the same 2007-2026 window, net of MERs and 8bps of "
+               "turnover cost. Buy-and-hold looks best here partly because the equity sleeve "
+               "drifted upward through a long bull market — it is not a free lunch, it is "
+               "unmanaged risk creep, which is exactly what a drift band prevents.")

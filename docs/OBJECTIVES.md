@@ -71,6 +71,14 @@ should be stable — a process that reshuffles the book annually is fitting nois
 - Per-security investigation: total return, tail risk by three methods, rolling
   risk-adjusted return, factor exposure, behaviour in each crisis window.
 - Position sizing to whole shares, in each security's own currency.
+- A desktop application: native window, no browser, engine supervised as a child
+  process and killed with the window. Shortcuts on the Desktop and Start menu.
+- Self-documenting output: every displayed number carries its formula, inputs,
+  derivation steps, caveat and source module, in a tooltip and in a full
+  expander beside the chart.
+- A live critical evaluation of the model's own output, with ranked
+  recommendations separating evidenced actions from decisions only the investor
+  can make.
 
 ### Explicitly out of scope
 
@@ -211,6 +219,36 @@ the judgement inputs are doing less than their prominence in the code suggests.
 More frequent rebalancing bought turnover cost and a slightly *deeper* drawdown,
 not a better return — rebalancing into equities mid-drawdown adds risk exactly
 when it is least wanted. The dashboard default is now annual.
+
+## Recommendations
+
+These live in the app's **Evaluation** tab, section 6, computed against the
+current settings. Summarised here for the record.
+
+**Evidenced actions**
+1. **Sell VOLX.TO.** -99.996% cumulative, structural contango decay. Gold holds
+   the tail-hedge slot at a fraction of the cost. Only open question is tax
+   timing.
+2. **Rebalance annually, not quarterly.** Annual returned 5.61% at a 0.32 Sharpe
+   on 4.8%/yr turnover; quarterly returned 5.48% at 0.30 on 8.0%. A 20% drift
+   band performs almost identically to annual without a calendar.
+3. **Confirm the account placements before trading.** US-listed VTV and AVUV
+   belong in the RRSP; holding them in a TFSA forfeits the 15% treaty
+   withholding relief permanently.
+
+**Decisions only the investor can make**
+4. **Gold at 14% is a policy ceiling, not a data result** — uncapped, maximum
+   diversification wants 27.8%. If that is uncomfortable, lower the cap in
+   `core/policy.py` and re-run rather than overriding the output.
+5. **The 34.5% defensive sleeve depends entirely on horizon.** All-equity earned
+   0.85pp/yr more over the backtest window. If the money is untouchable for
+   decades, move the fixed-income band from 15-35% toward 10-20%.
+
+**Worth considering**
+6. Weight max-Sharpe more heavily in `blend_strategies()` if the thesis should
+   actually steer the book — at the cost of out-of-sample stability.
+7. Build `analysis/pca_overlap.py` to settle the AI-capex concentration claim.
+8. Decide whether CAPREIT belongs in the book at all; zero is acceptable.
 
 ## Known gaps, in priority order
 

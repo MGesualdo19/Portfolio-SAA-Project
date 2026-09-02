@@ -15,9 +15,11 @@ The portfolio is Canadian. Base currency is CAD. Two holdings are USD-listed.
 ## Run it
 
 ```bash
-python run_dashboard.py                  # dashboard on http://localhost:8501
+python -m desktop.main                   # desktop app (native window)
+python -m desktop.main --browser         # same app, in the default browser
+python run_dashboard.py                  # browser on a fixed port 8501
 jupyter lab notebooks/01_saa_derivation.ipynb
-pytest -q                                # tests
+pytest -q                                # tests;  -m "not network" to skip live data
 ```
 
 Dependencies live in `requirements.txt`; the venv is `.venv/`. On Windows use
@@ -27,15 +29,15 @@ because `core` and `analysis` are top-level packages, not installed.
 ## Architecture, and the one rule that matters
 
 ```
-core/           analysis/          dashboard/         notebooks/
-  data_loader     regime             app.py             01_saa_derivation
-  fx              correlation        methodology.py
+core/           analysis/          dashboard/         desktop/
+  data_loader     regime             app.py             main.py
+  fx              correlation        methodology.py     saa.ico
   returns         stress             theme.py
-  proxies         factor_regression  data.py
-  estimation                         views/*.py
+  proxies         factor_regression  data.py          notebooks/
+  estimation                         views/*.py         01_saa_derivation
   optimizer
-  policy
-  backtest_engine
+  policy                                              scripts/
+  backtest_engine                                       create_shortcut.py
   tracker
   saa       <-- the orchestrator
 ```
@@ -134,6 +136,13 @@ answer up. That is a regression even if nothing raised.
 
 For the dashboard, `streamlit.testing.v1.AppTest` actually executes the script
 and surfaces exceptions; loading the URL does not.
+
+The desktop shell is tested at the process layer in `tests/test_desktop_shell.py`
+-- port selection, headless/loopback-only server flags, health polling, and that
+`stop_server` releases the port. The window itself is not tested (it needs a
+display and would block). If you change `desktop/main.py`, verify by launching it
+and confirming a visible window exists and no `streamlit` process survives
+closing it.
 
 ## Known gaps
 
